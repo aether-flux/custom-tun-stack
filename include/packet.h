@@ -5,6 +5,16 @@
 #include <stdint.h>
 
 /**
+ * Calculate checksum of given header
+ *
+ * @param buf Buffer of header bytes
+ * @param len Size of buffer
+ * @return Checksum computed from buffer
+ * match
+ */
+uint16_t get_checksum(const void *buf, size_t len);
+
+/**
  * Handle different parts of the received buffer
  *
  * @param buf Buffer with received message

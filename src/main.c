@@ -10,6 +10,7 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
+#include "../include/packet.h"
 #include "../include/poller.h"
 #include "../include/tun.h"
 
@@ -42,24 +43,31 @@ static void hex_dump(const unsigned char *buf, size_t len) {
 
 // Callback to run when event is triggered
 void cb(int fd, uint32_t events, void *user_data) {
+  (void)events;
+  (void)user_data;
+
   unsigned char buffer[BUF_SIZE];
   ssize_t nread = tun_read(fd, buffer, sizeof(buffer));
   if (nread < 0) {
-    // if (errno == EINTR)
-    //   continue;
     perror("Error reading from TUN device");
     return;
+  }
+
+  if (nread < 20)
+    return; // too short for IPv4
+
+  if (handle_buffer(buffer, nread) < 0) {
+    return; // error in handling packet
   }
 
   printf("=== Received packet (%zd bytes) ===\n", nread);
   hex_dump(buffer, (size_t)nread);
 
-  // Basic ipv4 check
-  if (nread > 0) {
-    uint8_t version = (buffer[0] >> 4) & 0x0F;
-    uint8_t ihl = buffer[0] & 0x0F;
-    printf("IP Version: %u, Header Length: %u bytes\n\n", version, ihl * 4);
-  }
+  ssize_t nwritten = tun_write(fd, buffer, (size_t)nread);
+  if (nwritten < 0)
+    perror("Error writing ICMP reply to TUN device");
+  else
+    printf("[+] Successfully sent ICMP Echo Reply (%zd bytes)\n", nwritten);
 }
 
 int main(void) {
